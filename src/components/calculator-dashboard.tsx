@@ -19,7 +19,12 @@ import {
     UsersRound,
     type LucideIcon,
 } from "lucide-react";
-import { useState, type KeyboardEvent } from "react";
+import {
+    useEffect,
+    useState,
+    useSyncExternalStore,
+    type KeyboardEvent,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -476,6 +481,35 @@ const calculators: CalculatorDefinition[] = [
     },
 ];
 
+const defaultTool = calculators[0].id;
+const toolChangeEvent = "calculator-tool-change";
+
+function getToolFromUrl() {
+    const requestedTool = new URLSearchParams(window.location.search).get("tool");
+    return calculators.some((item) => item.id === requestedTool)
+        ? requestedTool!
+        : defaultTool;
+}
+
+function subscribeToToolUrl(onStoreChange: () => void) {
+    window.addEventListener("popstate", onStoreChange);
+    window.addEventListener(toolChangeEvent, onStoreChange);
+    return () => {
+        window.removeEventListener("popstate", onStoreChange);
+        window.removeEventListener(toolChangeEvent, onStoreChange);
+    };
+}
+
+function setToolUrl(id: string) {
+    if (getToolFromUrl() === id) return;
+
+    const url = new URL(window.location.href);
+    if (id === defaultTool) url.searchParams.delete("tool");
+    else url.searchParams.set("tool", id);
+    window.history.pushState(null, "", url);
+    window.dispatchEvent(new Event(toolChangeEvent));
+}
+
 function CalculatorPanel({ definition }: { definition: CalculatorDefinition }) {
     const [values, setValues] = useState<Values>(() =>
         createInitialValues(definition),
@@ -727,11 +761,14 @@ function CalculatorWorkspace({ activeTool }: { activeTool: string }) {
 }
 
 export function CalculatorDashboard() {
-    const [activeTool, setActiveTool] = useState("discount");
+    const activeTool = useSyncExternalStore(
+        subscribeToToolUrl,
+        getToolFromUrl,
+        () => defaultTool,
+    );
 
-    function selectTool(id: string, tab?: HTMLButtonElement) {
-        setActiveTool(id);
-        tab?.scrollIntoView({
+    useEffect(() => {
+        document.getElementById(`${activeTool}-tab`)?.scrollIntoView({
             behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
                 .matches
                 ? "auto"
@@ -739,6 +776,10 @@ export function CalculatorDashboard() {
             block: "nearest",
             inline: "center",
         });
+    }, [activeTool]);
+
+    function selectTool(id: string) {
+        setToolUrl(id);
     }
 
     function handleTabKeyDown(
@@ -758,7 +799,7 @@ export function CalculatorDashboard() {
             '[role="tab"]',
         )[nextIndex];
         nextTab?.focus();
-        selectTool(calculators[nextIndex].id, nextTab);
+        selectTool(calculators[nextIndex].id);
     }
 
     return (
@@ -767,9 +808,11 @@ export function CalculatorDashboard() {
                 <a
                     className="brand"
                     href="#top"
-                    aria-label="INU 생활형 계산기 홈"
+                    aria-label="INU CALC · 생활형 계산기 홈"
                 >
-                    <span className="brand-mark">I</span>
+                    <span className="brand-mark" aria-hidden="true">
+                        I
+                    </span>
                     <span>
                         INU <b>CALC</b>
                     </span>
@@ -842,9 +885,7 @@ export function CalculatorDashboard() {
                                 aria-selected={activeTool === item.id}
                                 data-active={activeTool === item.id}
                                 tabIndex={activeTool === item.id ? 0 : -1}
-                                onClick={(event) =>
-                                    selectTool(item.id, event.currentTarget)
-                                }
+                                onClick={() => selectTool(item.id)}
                                 onKeyDown={(event) =>
                                     handleTabKeyDown(event, index)
                                 }
@@ -860,7 +901,9 @@ export function CalculatorDashboard() {
 
             <footer>
                 <div className="footer-brand">
-                    <span className="brand-mark">I</span>
+                    <span className="brand-mark" aria-hidden="true">
+                        I
+                    </span>
                     <span>INU 생활형 계산기</span>
                 </div>
                 <p>Copyright INU 생활형 계산기 by kinn</p>
