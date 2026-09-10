@@ -19,7 +19,7 @@ import {
     UsersRound,
     type LucideIcon,
 } from "lucide-react";
-import { useState, type CSSProperties } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -690,80 +690,75 @@ function ThemeToggle() {
     );
 }
 
-function CalculatorCard({
-    item,
-    index,
-    open,
-    onToggle,
-}: {
-    item: CalculatorDefinition;
-    index: number;
-    open: boolean;
-    onToggle: () => void;
-}) {
-    const Icon = item.icon;
+function CalculatorWorkspace({ activeTool }: { activeTool: string }) {
+    const activeIndex = calculators.findIndex((item) => item.id === activeTool);
+    const activeCalculator = calculators[activeIndex] ?? calculators[0];
+    const Icon = activeCalculator.icon;
+
     return (
-        <article
-            id={`tool-${item.id}`}
-            className={`calculator-card reveal-card ${open ? "is-open" : ""}`}
-            style={{ "--delay": `${index * 45}ms` } as CSSProperties}
-        >
-            <button
-                className="card-trigger"
-                type="button"
-                onClick={onToggle}
-                aria-expanded={open}
-                aria-controls={`${item.id}-panel`}
-            >
+        <article className="calculator-workspace reveal-card">
+            <header className="workspace-heading">
                 <span className="card-index">
-                    {String(index + 1).padStart(2, "0")}
+                    {String(activeIndex + 1).padStart(2, "0")}
                 </span>
                 <span className="icon-box">
                     <Icon />
                 </span>
                 <span className="card-heading">
-                    <span className="tag">{item.tag}</span>
-                    <strong>{item.title}</strong>
-                    <span>{item.description}</span>
+                    <span className="tag">{activeCalculator.tag}</span>
+                    <strong>{activeCalculator.title}</strong>
+                    <span>{activeCalculator.description}</span>
                 </span>
-                <span className="open-indicator">
-                    <ChevronDown />
-                </span>
-            </button>
-            <div className="card-panel" id={`${item.id}-panel`} hidden={!open}>
-                <CalculatorPanel definition={item} />
-            </div>
+            </header>
+            {calculators.map((item) => (
+                <div
+                    className="workspace-panel"
+                    id={`${item.id}-panel`}
+                    key={item.id}
+                    role="tabpanel"
+                    aria-labelledby={`${item.id}-tab`}
+                    hidden={activeTool !== item.id}
+                >
+                    <CalculatorPanel definition={item} />
+                </div>
+            ))}
         </article>
     );
 }
 
 export function CalculatorDashboard() {
-    const [openTools, setOpenTools] = useState(() => new Set(["discount"]));
     const [activeTool, setActiveTool] = useState("discount");
 
-    function toggleTool(id: string) {
-        const willOpen = !openTools.has(id);
-        setOpenTools((current) => {
-            const next = new Set(current);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
+    function selectTool(id: string, tab?: HTMLButtonElement) {
+        setActiveTool(id);
+        tab?.scrollIntoView({
+            behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+                .matches
+                ? "auto"
+                : "smooth",
+            block: "nearest",
+            inline: "center",
         });
-        if (willOpen) setActiveTool(id);
     }
 
-    function selectTool(id: string) {
-        setOpenTools((current) => new Set(current).add(id));
-        setActiveTool(id);
-        window.requestAnimationFrame(() => {
-            document.getElementById(`tool-${id}`)?.scrollIntoView({
-                behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
-                    .matches
-                    ? "auto"
-                    : "smooth",
-                block: "start",
-            });
-        });
+    function handleTabKeyDown(
+        event: KeyboardEvent<HTMLButtonElement>,
+        index: number,
+    ) {
+        let nextIndex = index;
+        if (event.key === "ArrowRight") nextIndex = (index + 1) % calculators.length;
+        else if (event.key === "ArrowLeft") {
+            nextIndex = (index - 1 + calculators.length) % calculators.length;
+        } else if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = calculators.length - 1;
+        else return;
+
+        event.preventDefault();
+        const nextTab = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+            '[role="tab"]',
+        )[nextIndex];
+        nextTab?.focus();
+        selectTool(calculators[nextIndex].id, nextTab);
     }
 
     return (
@@ -827,35 +822,39 @@ export function CalculatorDashboard() {
                             </h2>
                         </div>
                         <p>
-                            카드를 눌러 계산기를 열고,
+                            위에서 계산기를 선택하고,
                             <br />
                             값을 입력하면 즉시 결과가 나와요.
                         </p>
                     </div>
-                    <nav className="tool-index" aria-label="계산기 빠른 이동">
+                    <nav
+                        className="tool-index"
+                        aria-label="계산기 선택"
+                        role="tablist"
+                    >
                         {calculators.map((item, index) => (
                             <button
                                 key={item.id}
+                                id={`${item.id}-tab`}
                                 type="button"
+                                role="tab"
+                                aria-controls={`${item.id}-panel`}
+                                aria-selected={activeTool === item.id}
                                 data-active={activeTool === item.id}
-                                onClick={() => selectTool(item.id)}
+                                tabIndex={activeTool === item.id ? 0 : -1}
+                                onClick={(event) =>
+                                    selectTool(item.id, event.currentTarget)
+                                }
+                                onKeyDown={(event) =>
+                                    handleTabKeyDown(event, index)
+                                }
                             >
                                 <span>{String(index + 1).padStart(2, "0")}</span>
                                 {item.title}
                             </button>
                         ))}
                     </nav>
-                    <div className="calculator-grid">
-                        {calculators.map((item, index) => (
-                            <CalculatorCard
-                                key={item.id}
-                                item={item}
-                                index={index}
-                                open={openTools.has(item.id)}
-                                onToggle={() => toggleTool(item.id)}
-                            />
-                        ))}
-                    </div>
+                    <CalculatorWorkspace activeTool={activeTool} />
                 </section>
             </main>
 

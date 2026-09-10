@@ -234,30 +234,23 @@ button, a { -webkit-tap-highlight-color: transparent; }
   font-family: Montserrat, sans-serif;
   font-size: .58rem;
 }
-.calculator-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
-.calculator-card {
-  scroll-margin-top: 82px;
+.calculator-workspace {
+  width: min(780px, 100%);
+  margin: 0 auto;
   border: 1px solid var(--border);
   border-radius: 7px;
   overflow: hidden;
   background: var(--card);
-  box-shadow: none;
-  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+  border-color: var(--primary);
+  box-shadow: 4px 4px 0 var(--primary);
 }
-.calculator-card:hover { border-color: var(--foreground); transform: translate(-1px, -1px); box-shadow: 2px 2px 0 var(--foreground); }
-.calculator-card.is-open { border-color: var(--primary); box-shadow: 4px 4px 0 var(--primary); }
-.card-trigger {
-  width: 100%;
+.workspace-heading {
   padding: 23px;
-  border: 0;
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: auto auto 1fr;
   align-items: center;
   gap: 17px;
-  background: transparent;
-  color: inherit;
   text-align: left;
-  cursor: pointer;
 }
 .card-index { align-self: start; color: var(--primary); font-family: Montserrat, sans-serif; font-size: .66rem; font-weight: 700; }
 .icon-box { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 5px; background: var(--primary); color: white; }
@@ -266,11 +259,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .card-heading .tag { width: max-content; color: var(--primary); font-family: Montserrat, sans-serif; font-size: .61rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .card-heading strong { font-size: 1.04rem; }
 .card-heading > span:last-child { grid-column: 1 / -1; color: var(--muted-foreground); font-size: .78rem; }
-.open-indicator { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 4px; border: 1px solid var(--border); }
-.card-trigger:hover .open-indicator { border-color: var(--primary); color: var(--primary); }
-.open-indicator svg { width: 15px; transition: transform .25s ease; }
-.is-open .open-indicator svg { transform: rotate(180deg); }
-.card-panel { border-top: 1px solid var(--border); animation: openPanel .25s ease both; }
+.workspace-panel { border-top: 1px solid var(--border); animation: openPanel .25s ease both; }
 .calculator-body { padding: 22px 23px 24px; }
 .fields-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .field-group { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
@@ -344,8 +333,8 @@ footer p { margin: 0; font-size: .75rem; }
   .section-heading > p { display: none; }
   .tool-index { top: 8px; margin-right: -15px; margin-left: -15px; border-right: 0; border-left: 0; border-radius: 0; }
   .tool-index button { min-width: 106px; }
-  .calculator-grid, .skeleton-grid { grid-template-columns: 1fr; }
-  .card-trigger { padding: 19px 14px; gap: 10px; }
+  .skeleton-grid { grid-template-columns: 1fr; }
+  .workspace-heading { padding: 19px 14px; gap: 10px; }
   .card-index { display: none; }
   .icon-box { width: 40px; height: 40px; }
   .calculator-body { padding: 19px 17px 21px; }
