@@ -693,21 +693,25 @@ function ThemeToggle() {
 function CalculatorCard({
     item,
     index,
+    open,
+    onToggle,
 }: {
     item: CalculatorDefinition;
     index: number;
+    open: boolean;
+    onToggle: () => void;
 }) {
-    const [open, setOpen] = useState(index === 0);
     const Icon = item.icon;
     return (
         <article
+            id={`tool-${item.id}`}
             className={`calculator-card reveal-card ${open ? "is-open" : ""}`}
             style={{ "--delay": `${index * 45}ms` } as CSSProperties}
         >
             <button
                 className="card-trigger"
                 type="button"
-                onClick={() => setOpen((current) => !current)}
+                onClick={onToggle}
                 aria-expanded={open}
                 aria-controls={`${item.id}-panel`}
             >
@@ -734,6 +738,34 @@ function CalculatorCard({
 }
 
 export function CalculatorDashboard() {
+    const [openTools, setOpenTools] = useState(() => new Set(["discount"]));
+    const [activeTool, setActiveTool] = useState("discount");
+
+    function toggleTool(id: string) {
+        const willOpen = !openTools.has(id);
+        setOpenTools((current) => {
+            const next = new Set(current);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+        if (willOpen) setActiveTool(id);
+    }
+
+    function selectTool(id: string) {
+        setOpenTools((current) => new Set(current).add(id));
+        setActiveTool(id);
+        window.requestAnimationFrame(() => {
+            document.getElementById(`tool-${id}`)?.scrollIntoView({
+                behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+                    .matches
+                    ? "auto"
+                    : "smooth",
+                block: "start",
+            });
+        });
+    }
+
     return (
         <div className="site-shell">
             <header className="topbar">
@@ -800,12 +832,27 @@ export function CalculatorDashboard() {
                             값을 입력하면 즉시 결과가 나와요.
                         </p>
                     </div>
+                    <nav className="tool-index" aria-label="계산기 빠른 이동">
+                        {calculators.map((item, index) => (
+                            <button
+                                key={item.id}
+                                type="button"
+                                data-active={activeTool === item.id}
+                                onClick={() => selectTool(item.id)}
+                            >
+                                <span>{String(index + 1).padStart(2, "0")}</span>
+                                {item.title}
+                            </button>
+                        ))}
+                    </nav>
                     <div className="calculator-grid">
                         {calculators.map((item, index) => (
                             <CalculatorCard
                                 key={item.id}
                                 item={item}
                                 index={index}
+                                open={openTools.has(item.id)}
+                                onToggle={() => toggleTool(item.id)}
                             />
                         ))}
                     </div>

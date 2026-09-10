@@ -199,8 +199,44 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .section-heading h2 { margin: 12px 0 0; font-size: clamp(2.2rem, 5vw, 4rem); line-height: 1.08; letter-spacing: -.055em; }
 .section-heading h2 span { color: var(--muted-foreground); font-weight: 500; }
 .section-heading > p { margin: 0 0 8px; color: var(--muted-foreground); font-size: .9rem; line-height: 1.7; }
+.tool-index {
+  position: sticky;
+  z-index: 8;
+  top: 12px;
+  margin-bottom: 26px;
+  overflow-x: auto;
+  display: flex;
+  border: 1px solid var(--foreground);
+  border-radius: 5px;
+  background: var(--card);
+  scrollbar-width: none;
+}
+.tool-index::-webkit-scrollbar { display: none; }
+.tool-index button {
+  min-width: 96px;
+  height: 54px;
+  padding: 8px 10px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  flex: 1 0 auto;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: .69rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tool-index button:last-child { border-right: 0; }
+.tool-index button:hover { color: var(--primary); }
+.tool-index button[data-active="true"] { background: var(--primary); color: white; }
+.tool-index button span {
+  margin-right: 5px;
+  font-family: Montserrat, sans-serif;
+  font-size: .58rem;
+}
 .calculator-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
 .calculator-card {
+  scroll-margin-top: 82px;
   border: 1px solid var(--border);
   border-radius: 7px;
   overflow: hidden;
@@ -306,6 +342,8 @@ footer p { margin: 0; font-size: .75rem; }
   .calculator-section { width: calc(100% - 30px); padding: 40px 0 90px; }
   .section-heading { align-items: flex-start; flex-direction: column; }
   .section-heading > p { display: none; }
+  .tool-index { top: 8px; margin-right: -15px; margin-left: -15px; border-right: 0; border-left: 0; border-radius: 0; }
+  .tool-index button { min-width: 106px; }
   .calculator-grid, .skeleton-grid { grid-template-columns: 1fr; }
   .card-trigger { padding: 19px 14px; gap: 10px; }
   .card-index { display: none; }
