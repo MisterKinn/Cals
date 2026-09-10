@@ -808,11 +808,9 @@ export function CalculatorDashboard() {
                 <a
                     className="brand"
                     href="#top"
-                    aria-label="I INU CALC · 생활형 계산기 홈"
+                    title="생활형 계산기 홈"
                 >
-                    <span className="brand-mark" aria-hidden="true">
-                        I
-                    </span>
+                    <span className="brand-mark">I</span>
                     <span>
                         INU <b>CALC</b>
                     </span>
