@@ -31,7 +31,7 @@ import {
     calculateFuelCost,
     calculateLoan,
     calculateSplitBill,
-    calculateUnitPrice,
+    calculateUnitComparison,
     calculateWage,
     convertUnit,
     type ConversionType,
@@ -167,11 +167,29 @@ const calculators: CalculatorDefinition[] = [
         tag: "장보기",
         icon: Scale,
         fields: [
-            { key: "price", label: "상품 가격", initial: 12900, suffix: "원" },
             {
-                key: "quantity",
-                label: "용량·수량",
+                key: "priceA",
+                label: "상품 A 가격",
+                initial: 12900,
+                suffix: "원",
+            },
+            {
+                key: "quantityA",
+                label: "상품 A 용량·수량",
                 initial: 500,
+                suffix: "g/ml/개",
+                min: 0.01,
+            },
+            {
+                key: "priceB",
+                label: "상품 B 가격",
+                initial: 10900,
+                suffix: "원",
+            },
+            {
+                key: "quantityB",
+                label: "상품 B 용량·수량",
+                initial: 450,
                 suffix: "g/ml/개",
                 min: 0.01,
             },
@@ -183,11 +201,25 @@ const calculators: CalculatorDefinition[] = [
                 min: 1,
             },
         ],
-        formula: "단가 = 가격 ÷ 용량 × 비교 단위",
-        calculate: (v) => ({
-            primary: `${won.format(calculateUnitPrice(num(v, "price"), num(v, "quantity"), num(v, "base")))} / ${decimal.format(num(v, "base"))}단위`,
-            detail: "같은 단위로 다른 상품과 비교해 보세요.",
-        }),
+        formula: "각 상품 단가 = 가격 ÷ 용량 × 비교 단위",
+        calculate: (v) => {
+            const base = num(v, "base");
+            const result = calculateUnitComparison(
+                num(v, "priceA"),
+                num(v, "quantityA"),
+                num(v, "priceB"),
+                num(v, "quantityB"),
+                base,
+            );
+            const primary =
+                result.cheaper === "same"
+                    ? "두 상품의 단가가 같아요."
+                    : `상품 ${result.cheaper}가 더 저렴해요.`;
+            return {
+                primary,
+                detail: `A ${won.format(result.unitPriceA)} · B ${won.format(result.unitPriceB)} / ${decimal.format(base)}단위 · 차이 ${won.format(result.difference)}`,
+            };
+        },
     },
     {
         id: "wage",

@@ -8,6 +8,7 @@ import {
   calculateLoan,
   calculateSplitBill,
   calculateUnitPrice,
+  calculateUnitComparison,
   calculateWage,
   convertUnit,
 } from "./calculations";
@@ -26,6 +27,20 @@ describe("daily-life calculations", () => {
 
   it("normalizes a unit price", () => {
     expect(calculateUnitPrice(9_000, 300, 100)).toBe(3_000);
+  });
+
+  it("compares two products using the same base unit", () => {
+    const result = calculateUnitComparison(12_900, 500, 10_900, 450, 100);
+    expect(result.unitPriceA).toBe(2_580);
+    expect(result.unitPriceB).toBeCloseTo(2_422.22);
+    expect(result.difference).toBeCloseTo(157.78);
+    expect(result.cheaper).toBe("B");
+  });
+
+  it("recognizes equal unit prices", () => {
+    expect(calculateUnitComparison(5_000, 100, 10_000, 200).cheaper).toBe(
+      "same",
+    );
   });
 
   it("estimates a monthly wage", () => {

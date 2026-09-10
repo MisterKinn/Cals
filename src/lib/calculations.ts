@@ -27,6 +27,26 @@ export function calculateUnitPrice(price: number, quantity: number, base = 100) 
   return (clampAtZero(price) / quantity) * base;
 }
 
+export function calculateUnitComparison(
+  priceA: number,
+  quantityA: number,
+  priceB: number,
+  quantityB: number,
+  base = 100,
+) {
+  if (quantityA <= 0 || quantityB <= 0 || base <= 0) {
+    return { unitPriceA: 0, unitPriceB: 0, difference: 0, cheaper: "invalid" as const };
+  }
+
+  const unitPriceA = calculateUnitPrice(priceA, quantityA, base);
+  const unitPriceB = calculateUnitPrice(priceB, quantityB, base);
+  const difference = Math.abs(unitPriceA - unitPriceB);
+  const cheaper =
+    difference < 0.005 ? "same" : unitPriceA < unitPriceB ? "A" : "B";
+
+  return { unitPriceA, unitPriceB, difference, cheaper };
+}
+
 export function calculateWage(
   hourlyWage: number,
   hoursPerDay: number,
