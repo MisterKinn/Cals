@@ -4,12 +4,15 @@ import {
     Banknote,
     CalendarDays,
     CarFront,
+    Check,
     ChevronDown,
     CircleDollarSign,
     Coins,
+    Copy,
     HeartPulse,
     Moon,
     Percent,
+    RotateCcw,
     Ruler,
     Scale,
     Sun,
@@ -48,6 +51,7 @@ type Field = {
     suffix?: string;
     type?: "number" | "date" | "select";
     min?: number;
+    max?: number;
     step?: number;
     options?: { value: string; label: string }[];
 };
@@ -65,7 +69,47 @@ type CalculatorDefinition = {
     calculate: (values: Values) => Result;
 };
 
-const num = (values: Values, key: string) => Number(values[key]) || 0;
+function parseNumericValue(value: number | string) {
+    const parsed = Number(String(value).replaceAll(",", ""));
+    return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function formatNumericInput(value: string, allowNegative = false) {
+    const withoutCommas = value.replaceAll(",", "");
+    if (withoutCommas.trim() === "") return "";
+    if (allowNegative && withoutCommas.trim() === "-") return "-";
+    const negative = allowNegative && withoutCommas.trimStart().startsWith("-");
+    const unsigned = withoutCommas.replaceAll("-", "").replace(/[^\d.]/g, "");
+    const dotIndex = unsigned.indexOf(".");
+    const hasDecimal = dotIndex >= 0;
+    const integer = (hasDecimal ? unsigned.slice(0, dotIndex) : unsigned) || "0";
+    const fraction = hasDecimal
+        ? unsigned.slice(dotIndex + 1).replaceAll(".", "")
+        : "";
+    const grouped = integer.replace(/^0+(?=\d)/, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return `${negative ? "-" : ""}${grouped}${hasDecimal ? `.${fraction}` : ""}`;
+}
+
+const num = (values: Values, key: string) =>
+    parseNumericValue(values[key]) || 0;
+
+function getMinimum(field: Field, definition: CalculatorDefinition, values: Values) {
+    if (field.min !== undefined) return field.min;
+    if (definition.id === "convert" && values.conversion === "c-f") return -273.15;
+    return 0;
+}
+
+function createInitialValues(definition: CalculatorDefinition): Values {
+    return Object.fromEntries(
+        definition.fields.map((field) => [
+            field.key,
+            field.type === "date" || field.type === "select"
+                ? field.initial
+                : formatNumericInput(String(field.initial), Number(field.initial) < 0),
+        ]),
+    );
+}
 
 const calculators: CalculatorDefinition[] = [
     {
@@ -76,7 +120,7 @@ const calculators: CalculatorDefinition[] = [
         icon: Percent,
         fields: [
             { key: "price", label: "원래 가격", initial: 89000, suffix: "원" },
-            { key: "rate", label: "할인율", initial: 20, suffix: "%" },
+            { key: "rate", label: "할인율", initial: 20, suffix: "%", max: 100 },
             { key: "coupon", label: "쿠폰 금액", initial: 5000, suffix: "원" },
         ],
         formula: "최종가 = 원가 - (원가 × 할인율) - 쿠폰",
@@ -129,6 +173,7 @@ const calculators: CalculatorDefinition[] = [
                 label: "용량·수량",
                 initial: 500,
                 suffix: "g/ml/개",
+                min: 0.01,
             },
             {
                 key: "base",
@@ -166,6 +211,7 @@ const calculators: CalculatorDefinition[] = [
                 initial: 3.3,
                 suffix: "%",
                 step: 0.1,
+                max: 100,
             },
         ],
         formula: "월 근무시간 = 일 근무 × 주 근무일 × 평균 4.345주",
@@ -283,6 +329,7 @@ const calculators: CalculatorDefinition[] = [
                 initial: 12.5,
                 suffix: "km/L",
                 step: 0.1,
+                min: 0.1,
             },
             { key: "price", label: "리터당 유가", initial: 1680, suffix: "원" },
         ],
@@ -312,6 +359,7 @@ const calculators: CalculatorDefinition[] = [
                 initial: 170,
                 suffix: "cm",
                 step: 0.1,
+                min: 1,
             },
             {
                 key: "weight",
@@ -398,17 +446,69 @@ const calculators: CalculatorDefinition[] = [
 
 function CalculatorPanel({ definition }: { definition: CalculatorDefinition }) {
     const [values, setValues] = useState<Values>(() =>
-        Object.fromEntries(
-            definition.fields.map((field) => [field.key, field.initial]),
-        ),
+        createInitialValues(definition),
     );
-    const result = definition.calculate(values);
+    const [copyStatus, setCopyStatus] = useState<
+        "idle" | "copied" | "failed"
+    >("idle");
+    const errors = Object.fromEntries(
+        definition.fields.map((field) => {
+            const value = values[field.key];
+            let error: string | undefined;
+
+            if (field.type === "date" && !String(value).trim()) {
+                error = "날짜를 선택해 주세요.";
+            } else if (field.type !== "date" && field.type !== "select") {
+                const parsed = parseNumericValue(value);
+                const minimum = getMinimum(field, definition, values);
+                if (!Number.isFinite(parsed)) {
+                    error = "값을 입력해 주세요.";
+                } else if (parsed < minimum) {
+                    error = `${decimal.format(minimum)} 이상 입력해 주세요.`;
+                } else if (field.max !== undefined && parsed > field.max) {
+                    error = `${decimal.format(field.max)} 이하로 입력해 주세요.`;
+                }
+            }
+
+            return [field.key, error];
+        }),
+    ) as Record<string, string | undefined>;
+    const hasErrors = Object.values(errors).some(Boolean);
+    const result = hasErrors ? null : definition.calculate(values);
+
+    function resetValues() {
+        setValues(createInitialValues(definition));
+        setCopyStatus("idle");
+    }
+
+    async function copyResult() {
+        if (!result) return;
+        try {
+            await navigator.clipboard.writeText(
+                `${definition.title}: ${result.primary}\n${result.detail}`,
+            );
+            setCopyStatus("copied");
+            window.setTimeout(() => setCopyStatus("idle"), 1800);
+        } catch {
+            setCopyStatus("failed");
+        }
+    }
 
     return (
-        <div className="calculator-body">
+        <form
+            className="calculator-body"
+            onSubmit={(event) => {
+                event.preventDefault();
+                if (document.activeElement instanceof HTMLElement) {
+                    document.activeElement.blur();
+                }
+            }}
+        >
             <div className="fields-grid">
                 {definition.fields.map((field) => {
                     const id = `${definition.id}-${field.key}`;
+                    const errorId = `${id}-error`;
+                    const error = errors[field.key];
                     return (
                         <div
                             className={
@@ -443,51 +543,97 @@ function CalculatorPanel({ definition }: { definition: CalculatorDefinition }) {
                                 <div className="field-wrap">
                                     <Input
                                         id={id}
-                                        type={field.type ?? "number"}
+                                        type={field.type === "date" ? "date" : "text"}
                                         inputMode={
                                             field.type === "date"
                                                 ? undefined
                                                 : "decimal"
                                         }
-                                        min={
-                                            field.min ??
-                                            (definition.id === "convert" &&
-                                            values.conversion === "c-f"
-                                                ? -273.15
-                                                : 0)
-                                        }
-                                        step={field.step ?? 1}
+                                        enterKeyHint="done"
                                         value={values[field.key]}
+                                        aria-invalid={Boolean(error)}
+                                        aria-describedby={
+                                            error ? errorId : undefined
+                                        }
                                         onChange={(event) =>
                                             setValues((current) => ({
                                                 ...current,
                                                 [field.key]:
                                                     field.type === "date"
                                                         ? event.target.value
-                                                        : Number(
-                                                              event.target
-                                                                  .value,
+                                                        : formatNumericInput(
+                                                              event.target.value,
+                                                              getMinimum(
+                                                                  field,
+                                                                  definition,
+                                                                  current,
+                                                              ) < 0,
                                                           ),
                                             }))
                                         }
+                                        onKeyDown={(event) => {
+                                            if (event.key === "Enter") {
+                                                event.preventDefault();
+                                                event.currentTarget.blur();
+                                            }
+                                        }}
                                     />
                                     {field.suffix && (
                                         <span>{field.suffix}</span>
                                     )}
                                 </div>
                             )}
+                            {error && (
+                                <p className="field-error" id={errorId}>
+                                    {error}
+                                </p>
+                            )}
                         </div>
                     );
                 })}
             </div>
-            <div className="result-box" aria-live="polite">
-                <span>계산 결과</span>
-                <strong>{result.primary}</strong>
-                <p>{result.detail}</p>
-            </div>
+            {result ? (
+                <div className="result-box" aria-live="polite">
+                    <span>계산 결과</span>
+                    <strong>{result.primary}</strong>
+                    <p>{result.detail}</p>
+                </div>
+            ) : (
+                <div className="result-box result-disabled" aria-live="polite">
+                    <span>입력 확인</span>
+                    <strong>값을 확인해 주세요.</strong>
+                    <p>표시된 항목을 수정하면 결과가 바로 나타납니다.</p>
+                </div>
+            )}
             <p className="formula">공식 · {definition.formula}</p>
-            {result.notice && <p className="notice">※ {result.notice}</p>}
-        </div>
+            {result?.notice && <p className="notice">※ {result.notice}</p>}
+            <div className="panel-actions">
+                <Button
+                    className="action-button"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={resetValues}
+                >
+                    <RotateCcw /> 초기화
+                </Button>
+                <Button
+                    className="action-button"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!result}
+                    onClick={copyResult}
+                >
+                    {copyStatus === "copied" ? <Check /> : <Copy />}
+                    {copyStatus === "copied"
+                        ? "복사됨"
+                        : copyStatus === "failed"
+                          ? "복사 실패"
+                          : "결과 복사"}
+                </Button>
+            </div>
+        </form>
     );
 }
 
