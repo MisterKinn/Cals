@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# INU 생활형 계산기
 
-## Getting Started
+일상에서 자주 쓰는 계산 10가지를 하나의 반응형 웹 서비스로 모은 프로젝트입니다. 모든 계산은 브라우저 안에서만 수행되며 입력값을 저장하지 않습니다.
 
-First, run the development server:
+## 기능
+
+- 할인, 더치페이, 단가 비교, 시급·월급
+- 대출 상환, 예금 이자, 주유비, BMI
+- 날짜 차이, 단위 변환
+- 카드 확장 UI, 라이트·다크 모드, 모바일 반응형 레이아웃
+- Pretendard + Montserrat 로컬 폰트, 그레인·글래스 질감, fade-up 모션, 라우트 skeleton UI
+
+## 로컬 실행
+
+Node.js 20.9 이상을 사용합니다.
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+브라우저에서 [http://localhost:3000](http://localhost:3000)을 엽니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 검증
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run check
+```
 
-## Learn More
+위 명령은 ESLint, Vitest 계산식 테스트, Next.js production build를 순서대로 실행합니다.
 
-To learn more about Next.js, take a look at the following resources:
+## GitHub·Vercel 배포
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. GitHub에 빈 `calculators26_2_2` 저장소를 만듭니다.
+2. 이 폴더의 Git 원격을 해당 저장소로 지정하고 `main` 브랜치를 push합니다.
+3. Vercel에서 **Add New → Project**로 GitHub 저장소를 가져옵니다.
+4. Framework Preset은 Next.js, Build Command와 Output Directory는 기본값을 유지한 뒤 배포합니다.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+별도의 환경 변수는 필요하지 않습니다.
 
-## Deploy on Vercel
+## 기술 구성
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui, Lucide Icons, Vitest

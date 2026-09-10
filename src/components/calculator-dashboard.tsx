@@ -1,0 +1,650 @@
+"use client";
+
+import {
+    Banknote,
+    CalendarDays,
+    CarFront,
+    ChevronDown,
+    CircleDollarSign,
+    Coins,
+    HeartPulse,
+    Moon,
+    Percent,
+    Ruler,
+    Scale,
+    Sun,
+    UsersRound,
+    type LucideIcon,
+} from "lucide-react";
+import { useState, type CSSProperties } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+    calculateBmi,
+    calculateDateDifference,
+    calculateDeposit,
+    calculateDiscount,
+    calculateFuelCost,
+    calculateLoan,
+    calculateSplitBill,
+    calculateUnitPrice,
+    calculateWage,
+    convertUnit,
+    type ConversionType,
+} from "@/lib/calculations";
+
+const won = new Intl.NumberFormat("ko-KR", {
+    style: "currency",
+    currency: "KRW",
+    maximumFractionDigits: 0,
+});
+const decimal = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 2 });
+
+type Field = {
+    key: string;
+    label: string;
+    initial: number | string;
+    suffix?: string;
+    type?: "number" | "date" | "select";
+    min?: number;
+    step?: number;
+    options?: { value: string; label: string }[];
+};
+
+type Values = Record<string, number | string>;
+type Result = { primary: string; detail: string; notice?: string };
+type CalculatorDefinition = {
+    id: string;
+    title: string;
+    description: string;
+    tag: string;
+    icon: LucideIcon;
+    fields: Field[];
+    formula: string;
+    calculate: (values: Values) => Result;
+};
+
+const num = (values: Values, key: string) => Number(values[key]) || 0;
+
+const calculators: CalculatorDefinition[] = [
+    {
+        id: "discount",
+        title: "할인 계산",
+        description: "할인율과 쿠폰을 한 번에",
+        tag: "쇼핑",
+        icon: Percent,
+        fields: [
+            { key: "price", label: "원래 가격", initial: 89000, suffix: "원" },
+            { key: "rate", label: "할인율", initial: 20, suffix: "%" },
+            { key: "coupon", label: "쿠폰 금액", initial: 5000, suffix: "원" },
+        ],
+        formula: "최종가 = 원가 - (원가 × 할인율) - 쿠폰",
+        calculate: (v) => {
+            const result = calculateDiscount(
+                num(v, "price"),
+                num(v, "rate"),
+                num(v, "coupon"),
+            );
+            return {
+                primary: won.format(result.finalPrice),
+                detail: `총 ${won.format(result.saved)} 절약해요.`,
+            };
+        },
+    },
+    {
+        id: "split",
+        title: "더치페이",
+        description: "여러 명이 깔끔하게 나누기",
+        tag: "약속",
+        icon: UsersRound,
+        fields: [
+            { key: "amount", label: "총 금액", initial: 72000, suffix: "원" },
+            { key: "people", label: "인원", initial: 4, suffix: "명", min: 1 },
+            { key: "extra", label: "추가 비율", initial: 0, suffix: "%" },
+        ],
+        formula: "1인당 금액 = 총액 × (1 + 추가 비율) ÷ 인원",
+        calculate: (v) => {
+            const result = calculateSplitBill(
+                num(v, "amount"),
+                num(v, "people"),
+                num(v, "extra"),
+            );
+            return {
+                primary: `${won.format(result.perPerson)} / 1인`,
+                detail: `추가금 포함 총액은 ${won.format(result.total)}이에요.`,
+            };
+        },
+    },
+    {
+        id: "unit-price",
+        title: "단가 비교",
+        description: "용량이 달라도 가성비 비교",
+        tag: "장보기",
+        icon: Scale,
+        fields: [
+            { key: "price", label: "상품 가격", initial: 12900, suffix: "원" },
+            {
+                key: "quantity",
+                label: "용량·수량",
+                initial: 500,
+                suffix: "g/ml/개",
+            },
+            {
+                key: "base",
+                label: "비교 단위",
+                initial: 100,
+                suffix: "단위",
+                min: 1,
+            },
+        ],
+        formula: "단가 = 가격 ÷ 용량 × 비교 단위",
+        calculate: (v) => ({
+            primary: `${won.format(calculateUnitPrice(num(v, "price"), num(v, "quantity"), num(v, "base")))} / ${decimal.format(num(v, "base"))}단위`,
+            detail: "같은 단위로 다른 상품과 비교해 보세요.",
+        }),
+    },
+    {
+        id: "wage",
+        title: "시급·월급",
+        description: "이번 달 알바비 미리 보기",
+        tag: "일",
+        icon: Banknote,
+        fields: [
+            { key: "hourly", label: "시급", initial: 10500, suffix: "원" },
+            {
+                key: "hours",
+                label: "하루 근무",
+                initial: 6,
+                suffix: "시간",
+                step: 0.5,
+            },
+            { key: "days", label: "주당 근무", initial: 4, suffix: "일" },
+            {
+                key: "deduction",
+                label: "공제율",
+                initial: 3.3,
+                suffix: "%",
+                step: 0.1,
+            },
+        ],
+        formula: "월 근무시간 = 일 근무 × 주 근무일 × 평균 4.345주",
+        calculate: (v) => {
+            const result = calculateWage(
+                num(v, "hourly"),
+                num(v, "hours"),
+                num(v, "days"),
+                num(v, "deduction"),
+            );
+            return {
+                primary: `예상 실수령액 ${won.format(result.net)}`,
+                detail: `세전 ${won.format(result.gross)} · 약 ${decimal.format(result.monthlyHours)}시간`,
+            };
+        },
+    },
+    {
+        id: "loan",
+        title: "대출 상환",
+        description: "원리금균등 월 부담 계산",
+        tag: "금융",
+        icon: CircleDollarSign,
+        fields: [
+            {
+                key: "principal",
+                label: "대출 원금",
+                initial: 10000000,
+                suffix: "원",
+            },
+            {
+                key: "rate",
+                label: "연 금리",
+                initial: 4.5,
+                suffix: "%",
+                step: 0.1,
+            },
+            {
+                key: "months",
+                label: "상환 기간",
+                initial: 24,
+                suffix: "개월",
+                min: 1,
+            },
+        ],
+        formula: "월 상환액 = P × r(1+r)ⁿ ÷ ((1+r)ⁿ-1)",
+        calculate: (v) => {
+            const result = calculateLoan(
+                num(v, "principal"),
+                num(v, "rate"),
+                num(v, "months"),
+            );
+            return {
+                primary: `월 ${won.format(result.monthlyPayment)}`,
+                detail: `총 이자 ${won.format(result.totalInterest)} · 원리금균등상환`,
+            };
+        },
+    },
+    {
+        id: "deposit",
+        title: "예금 이자",
+        description: "세후 만기 수령액 확인",
+        tag: "저축",
+        icon: Coins,
+        fields: [
+            {
+                key: "principal",
+                label: "예치금",
+                initial: 5000000,
+                suffix: "원",
+            },
+            {
+                key: "rate",
+                label: "연 금리",
+                initial: 3.5,
+                suffix: "%",
+                step: 0.1,
+            },
+            {
+                key: "months",
+                label: "예치 기간",
+                initial: 12,
+                suffix: "개월",
+                min: 1,
+            },
+        ],
+        formula: "세후 이자 = 원금 × 연이율 × 기간 × (1-15.4%)",
+        calculate: (v) => {
+            const result = calculateDeposit(
+                num(v, "principal"),
+                num(v, "rate"),
+                num(v, "months"),
+            );
+            return {
+                primary: `만기 ${won.format(result.maturityAmount)}`,
+                detail: `세후 이자 ${won.format(result.netInterest)} · 일반과세 15.4% 기준`,
+            };
+        },
+    },
+    {
+        id: "fuel",
+        title: "주유비",
+        description: "거리와 연비로 이동비 예상",
+        tag: "이동",
+        icon: CarFront,
+        fields: [
+            {
+                key: "distance",
+                label: "총 이동거리",
+                initial: 180,
+                suffix: "km",
+            },
+            {
+                key: "efficiency",
+                label: "평균 연비",
+                initial: 12.5,
+                suffix: "km/L",
+                step: 0.1,
+            },
+            { key: "price", label: "리터당 유가", initial: 1680, suffix: "원" },
+        ],
+        formula: "주유비 = 이동거리 ÷ 연비 × 리터당 유가",
+        calculate: (v) => {
+            const result = calculateFuelCost(
+                num(v, "distance"),
+                num(v, "efficiency"),
+                num(v, "price"),
+            );
+            return {
+                primary: `예상 주유비 ${won.format(result.cost)}`,
+                detail: `필요 연료는 약 ${decimal.format(result.liters)}L예요.`,
+            };
+        },
+    },
+    {
+        id: "bmi",
+        title: "BMI",
+        description: "키와 체중으로 체질량지수 확인",
+        tag: "건강",
+        icon: HeartPulse,
+        fields: [
+            {
+                key: "height",
+                label: "키",
+                initial: 170,
+                suffix: "cm",
+                step: 0.1,
+            },
+            {
+                key: "weight",
+                label: "체중",
+                initial: 65,
+                suffix: "kg",
+                step: 0.1,
+            },
+        ],
+        formula: "BMI = 체중(kg) ÷ 키(m)²",
+        calculate: (v) => {
+            const result = calculateBmi(num(v, "weight"), num(v, "height"));
+            return {
+                primary: `BMI ${decimal.format(result.bmi)}`,
+                detail: `성인 기준 ${result.category} 범위예요.`,
+                notice: "건강 판단이 아닌 일반적인 참고용 결과입니다.",
+            };
+        },
+    },
+    {
+        id: "date",
+        title: "날짜 차이",
+        description: "개강·시험·여행까지 며칠?",
+        tag: "일정",
+        icon: CalendarDays,
+        fields: [
+            {
+                key: "start",
+                label: "시작일",
+                initial: "2026-09-01",
+                type: "date",
+            },
+            {
+                key: "end",
+                label: "마지막일",
+                initial: "2026-12-15",
+                type: "date",
+            },
+        ],
+        formula: "날짜 차이 = |마지막일 - 시작일|",
+        calculate: (v) => ({
+            primary: `${decimal.format(calculateDateDifference(String(v.start), String(v.end)))}일 차이`,
+            detail: "시작일 다음 날부터 마지막일까지의 날짜 차이예요.",
+        }),
+    },
+    {
+        id: "convert",
+        title: "단위 변환",
+        description: "평·마일·온도·무게를 빠르게",
+        tag: "변환",
+        icon: Ruler,
+        fields: [
+            {
+                key: "conversion",
+                label: "변환 유형",
+                initial: "pyeong-m2",
+                type: "select",
+                options: [
+                    { value: "pyeong-m2", label: "평 → 제곱미터" },
+                    { value: "km-mi", label: "킬로미터 → 마일" },
+                    { value: "c-f", label: "섭씨 → 화씨" },
+                    { value: "kg-lb", label: "킬로그램 → 파운드" },
+                ],
+            },
+            { key: "value", label: "변환할 값", initial: 10, step: 0.1 },
+        ],
+        formula: "변환 유형에 따른 표준 환산계수를 적용",
+        calculate: (v) => {
+            const type = String(v.conversion) as ConversionType;
+            const units: Record<ConversionType, [string, string]> = {
+                "km-mi": ["km", "mi"],
+                "pyeong-m2": ["평", "m²"],
+                "c-f": ["℃", "℉"],
+                "kg-lb": ["kg", "lb"],
+            };
+            const [from, to] = units[type];
+            return {
+                primary: `${decimal.format(convertUnit(type, num(v, "value")))} ${to}`,
+                detail: `${decimal.format(num(v, "value"))} ${from}의 변환 결과예요.`,
+            };
+        },
+    },
+];
+
+function CalculatorPanel({ definition }: { definition: CalculatorDefinition }) {
+    const [values, setValues] = useState<Values>(() =>
+        Object.fromEntries(
+            definition.fields.map((field) => [field.key, field.initial]),
+        ),
+    );
+    const result = definition.calculate(values);
+
+    return (
+        <div className="calculator-body">
+            <div className="fields-grid">
+                {definition.fields.map((field) => {
+                    const id = `${definition.id}-${field.key}`;
+                    return (
+                        <div
+                            className={
+                                field.type === "select"
+                                    ? "field-group full-field"
+                                    : "field-group"
+                            }
+                            key={field.key}
+                        >
+                            <Label htmlFor={id}>{field.label}</Label>
+                            {field.type === "select" ? (
+                                <select
+                                    id={id}
+                                    value={values[field.key]}
+                                    onChange={(event) =>
+                                        setValues((current) => ({
+                                            ...current,
+                                            [field.key]: event.target.value,
+                                        }))
+                                    }
+                                >
+                                    {field.options?.map((option) => (
+                                        <option
+                                            value={option.value}
+                                            key={option.value}
+                                        >
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <div className="field-wrap">
+                                    <Input
+                                        id={id}
+                                        type={field.type ?? "number"}
+                                        inputMode={
+                                            field.type === "date"
+                                                ? undefined
+                                                : "decimal"
+                                        }
+                                        min={
+                                            field.min ??
+                                            (definition.id === "convert" &&
+                                            values.conversion === "c-f"
+                                                ? -273.15
+                                                : 0)
+                                        }
+                                        step={field.step ?? 1}
+                                        value={values[field.key]}
+                                        onChange={(event) =>
+                                            setValues((current) => ({
+                                                ...current,
+                                                [field.key]:
+                                                    field.type === "date"
+                                                        ? event.target.value
+                                                        : Number(
+                                                              event.target
+                                                                  .value,
+                                                          ),
+                                            }))
+                                        }
+                                    />
+                                    {field.suffix && (
+                                        <span>{field.suffix}</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+            <div className="result-box" aria-live="polite">
+                <span>계산 결과</span>
+                <strong>{result.primary}</strong>
+                <p>{result.detail}</p>
+            </div>
+            <p className="formula">공식 · {definition.formula}</p>
+            {result.notice && <p className="notice">※ {result.notice}</p>}
+        </div>
+    );
+}
+
+function ThemeToggle() {
+    function toggleTheme() {
+        const root = document.documentElement;
+        const isDark = root.classList.toggle("dark");
+        localStorage.setItem("inu-theme", isDark ? "dark" : "light");
+    }
+
+    return (
+        <Button
+            className="theme-toggle"
+            variant="outline"
+            size="icon-lg"
+            onClick={toggleTheme}
+            aria-label="라이트·다크 모드 변경"
+        >
+            <Sun className="sun-icon" />
+            <Moon className="moon-icon" />
+        </Button>
+    );
+}
+
+function CalculatorCard({
+    item,
+    index,
+}: {
+    item: CalculatorDefinition;
+    index: number;
+}) {
+    const [open, setOpen] = useState(index === 0);
+    const Icon = item.icon;
+    return (
+        <article
+            className={`calculator-card reveal-card ${open ? "is-open" : ""}`}
+            style={{ "--delay": `${index * 45}ms` } as CSSProperties}
+        >
+            <button
+                className="card-trigger"
+                type="button"
+                onClick={() => setOpen((current) => !current)}
+                aria-expanded={open}
+                aria-controls={`${item.id}-panel`}
+            >
+                <span className="card-index">
+                    {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="icon-box">
+                    <Icon />
+                </span>
+                <span className="card-heading">
+                    <span className="tag">{item.tag}</span>
+                    <strong>{item.title}</strong>
+                    <span>{item.description}</span>
+                </span>
+                <span className="open-indicator">
+                    <ChevronDown />
+                </span>
+            </button>
+            <div className="card-panel" id={`${item.id}-panel`} hidden={!open}>
+                <CalculatorPanel definition={item} />
+            </div>
+        </article>
+    );
+}
+
+export function CalculatorDashboard() {
+    return (
+        <div className="site-shell">
+            <header className="topbar">
+                <a
+                    className="brand"
+                    href="#top"
+                    aria-label="INU 생활형 계산기 홈"
+                >
+                    <span className="brand-mark">I</span>
+                    <span>
+                        INU <b>CALC</b>
+                    </span>
+                </a>
+                <ThemeToggle />
+            </header>
+
+            <main id="top">
+                <section className="hero" aria-labelledby="main-title">
+                    <p className="eyebrow">01 / EVERYDAY UTILITIES</p>
+                    <h1 id="main-title">
+                        INU <span>생활형 계산기</span>
+                    </h1>
+                    <p className="hero-copy">
+                        복잡한 숫자는 여기 두세요.
+                        <br />
+                        생활에 필요한 계산을 빠르고 가볍게.
+                    </p>
+                    <a className="hero-cta" href="#calculators">
+                        계산 시작하기 <ChevronDown />
+                    </a>
+                    <div className="hero-stats" aria-label="서비스 특징">
+                        <div>
+                            <strong>10</strong>
+                            <span>생활 계산기</span>
+                        </div>
+                        <div>
+                            <strong>0</strong>
+                            <span>로그인·저장</span>
+                        </div>
+                        <div>
+                            <strong>100%</strong>
+                            <span>무료 사용</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    className="calculator-section"
+                    id="calculators"
+                    aria-labelledby="calculator-title"
+                >
+                    <div className="section-heading">
+                        <div>
+                            <p className="section-kicker">SMART TOOLS</p>
+                            <h2 id="calculator-title">
+                                필요한 계산을
+                                <br />
+                                <span>바로 시작하세요.</span>
+                            </h2>
+                        </div>
+                        <p>
+                            카드를 눌러 계산기를 열고,
+                            <br />
+                            값을 입력하면 즉시 결과가 나와요.
+                        </p>
+                    </div>
+                    <div className="calculator-grid">
+                        {calculators.map((item, index) => (
+                            <CalculatorCard
+                                key={item.id}
+                                item={item}
+                                index={index}
+                            />
+                        ))}
+                    </div>
+                </section>
+            </main>
+
+            <footer>
+                <div className="footer-brand">
+                    <span className="brand-mark">I</span>
+                    <span>INU 생활형 계산기</span>
+                </div>
+                <p>Copyright INU 생활형 계산기 by kinn</p>
+                <p className="footer-note">
+                    계산 결과는 참고용이며, 실제 계약·세금·건강 판단은 전문
+                    기준을 확인해 주세요.
+                </p>
+            </footer>
+        </div>
+    );
+}

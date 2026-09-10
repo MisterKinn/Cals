@@ -24,6 +24,12 @@
 .DS_Store
 *.pem
 
+# markdown notes (keep repository and agent documentation)
+*.md
+!README.md
+!AGENTS.md
+!CLAUDE.md
+
 # debug
 npm-debug.log*
 yarn-debug.log*
